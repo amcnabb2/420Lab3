@@ -47,13 +47,48 @@ void ece420ProcessFrame(sample_buf *dataBuf) {
     // Keep all of your code changes within java/MainActivity and cpp/ece420_*
     // ********************* START YOUR CODE HERE *********************** //
 
+    // Create new buffer of FFT_SIZE and initialize to zero to get the padding
+    kiss_fft_cpx fft_buffer_in[FFT_SIZE] = {};
+    // Create new buffer for complex fft output
+    kiss_fft_cpx fft_buffer_out[FFT_SIZE] = {};
+
+    // Apply hamming window to input
+    for(int n = 0; n < FRAME_SIZE; n++){
+        fft_buffer_in[n].r = bufferIn[n]*(0.54 - 0.46 * cos((2*M_PI*n)/(FRAME_SIZE-1)));
+    }
+
+    // Apply FFT
+    kiss_fft_cfg cfg = kiss_fft_alloc( FFT_SIZE , 0,NULL,NULL );
+    kiss_fft(cfg, fft_buffer_in, fft_buffer_out);
+
+    // Take the absolute value to get magnitude and square it
+    for (int i = 0; i < FFT_SIZE; i++){
+        float real = fft_buffer_out[i].r;
+        float imag = fft_buffer_out[i].i;
+        fftOut[i] = real*real+imag*imag; // magnitude would be sqrt of this so mag^2 is this
+    }
+
+    // scale logarithmically
+    for (int i = 0; i < FFT_SIZE; i++){
+        fftOut[i] = 10* log(fftOut[i]);
+    }
+
+    // Normalize
+    float max = 0;
+    for (int i = 0; i < FFT_SIZE; i++){
+        if (fftOut[i] > max)
+            max = fftOut[i];
+    }
+    for (int i = 0; i < FFT_SIZE; i++){
+        fftOut[i] = fftOut[i] / max;
+    }
 
     // thread-safe
     isWritingFft = true;
     // Currently set everything to 0 or 1 so the spectrogram will just be blue and red stripped
-    for (int i = 0; i < FRAME_SIZE; i++) {
-        fftOut[i] = (i/20)%2;
-    }
+//    for (int i = 0; i < FRAME_SIZE; i++) {
+//        fftOut[i] = 0;//(i/20)%2;
+//    }
 
     // ********************* END YOUR CODE HERE ************************* //
     // Flip the flag so that the JNI thread will update the buffer
